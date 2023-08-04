@@ -1,0 +1,18 @@
+{"name": "Micro_Benchmark_Revoke_Permission_from_Role",
+ "numberOfPaths": 1,
+ "numberOfDiscardedPaths": 0,
+ "numberOfValidPaths": 1,
+ "numberOfDistinctValidPaths": 1,
+ "discardedPathIDs":[],
+ "paths":[
+    {"pathID": "1.1",
+     "duplicatePathIDs":[],
+     "ops":[
+        { "vertex":"vertex_add_role", "op":"addRole", "roleName":"The_Nobel_Prize_-_Nobel_Committee_Medicine_-_Process", "measure":false },
+        { "vertex":"vertex_add_resource", "op":"addResource", "resourceName":"microbenchmark_resource", "roleName":"admin", "type":"transient", "resourceSize":1, "measure":false },
+        { "vertex":"vertex_assign_permission", "op":"assignPermission", "resourceName":"microbenchmark_resource", "roleName":"The_Nobel_Prize_-_Nobel_Committee_Medicine_-_Process", "permission":"READ", "type":"transient", "measure":false },
+        { "vertex":"vertex_revoke_permission", "op":"revokePermission", "resourceName":"microbenchmark_resource", "roleName":"The_Nobel_Prize_-_Nobel_Committee_Medicine_-_Process", "permission":"READ", "type":"transient", "measure":true },
+        { "vertex":"vertex_delete_resource", "op":"deleteResource", "resourceName":"microbenchmark_resource", "type":"transient", "measure":false },
+        { "vertex":"vertex_delete_role", "op":"deleteRole", "roleName":"The_Nobel_Prize_-_Nobel_Committee_Medicine_-_Process", "measure":false }
+    ]}
+]}

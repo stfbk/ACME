@@ -1,0 +1,23 @@
+{
+    "U":5,
+    "R":5,
+    "P":5,
+    "UR":15,
+    "PA":15,
+    "roles/user": {
+        "max":5,
+        "min":1
+    },
+    "users/role": {
+        "max":5,
+        "min":1
+    },
+    "permissions/role": {
+        "max":5,
+        "min":1
+    },
+    "roles/permission": {
+        "max":5,
+        "min":1
+    }
+}

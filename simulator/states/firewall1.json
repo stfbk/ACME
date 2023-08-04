@@ -1,0 +1,23 @@
+{
+    "U":365,
+    "R":60,
+    "P":709,
+    "UR":1130,
+    "PA":3455,
+    "roles/user": {
+        "max":14,
+        "min":0
+    },
+    "users/role": {
+        "max":174,
+        "min":1
+    },
+    "permissions/role": {
+        "max":617,
+        "min":1
+    },
+    "roles/permission": {
+        "max":25,
+        "min":1
+    }
+}
