@@ -1,8 +1,6 @@
-# at the beginning of the script
-import gevent.monkey
-gevent.monkey.patch_all()
 
-from locust import TaskSet, constant, events, HttpUser, task
+
+from locust import TaskSet, between, events
 from locust.user.task import DefaultTaskSet
 from locust.exception import StopUser
 from locust.env import Environment
@@ -10,16 +8,16 @@ from locust.runners import Runner, MasterRunner, WorkerRunner
 from functools import wraps
 from io import UnsupportedOperation
 from plistlib import InvalidFileException
+from locust import HttpUser, task, between, events
 from BaseRBAC import BaseRBAC
 from adapters.CryptoAC.CryptoACRBAC import CryptoACRBAC
-from adapters.CryptoAC.CryptoACRBACMQTT import CryptoACRBACMQTT
 from adapters.OPA.OPARBAC import OPARBAC
 from adapters.OPA.OPAWithDMRBAC import OPAWithDMRBAC
 from adapters.XACML.XACMLRBAC import XACMLRBAC
 from adapters.XACML.XACMLWithDMRBAC import XACMLWithDMRBAC
 import logging, base64, json, os, urllib3, threading, sys, random, traceback, time, string, datetime
 from gevent.lock import Semaphore
-import os, os.path
+import os.path
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -90,13 +88,6 @@ def getInstanceOfAdapter(
             username = CryptoACRBAC.adminName,
             doInitialize = doInitialize
         )
-    elif (adapterToUse == "CryptoACMQTT"):
-        return CryptoACRBACMQTT(
-            host = host, 
-            logging = logging,
-            username = CryptoACRBACMQTT.adminName,
-            doInitialize = doInitialize
-        )
     elif (adapterToUse == "OPA"):
         return OPARBAC(
             host = host, 
@@ -132,7 +123,8 @@ def getInstanceOfAdapter(
 
 
 # Utility method to return a random base64-encoded string of the given size
-def getRandomString(sizeInBytes):
+def getRandomString(sizeInKiloBytes):
+    sizeInBytes = sizeInKiloBytes * 1024
     return base64.b64encode(os.urandom(sizeInBytes))[:sizeInBytes].decode('utf-8')
 
 
@@ -624,13 +616,13 @@ def workerAskToStopExecutionListener(environment, msg, **kwargs):
 def _(parser):
 
     parser.add_argument(
-        "--operations", 
+        "operations", 
         type=str, 
         help="Path to one or more .json files separated by a ';' produced by the workflow extraction procedure and containing the lists of access control operations (e.g., 'path/to/file/1.json;path/to/file_2.json')."
     )
 
     parser.add_argument(
-        "--adapter", 
+        "adapter", 
         type=str,
         help="The adapter to use among 'CryptoAC', 'OPA', 'OPAWithDM', 'XACML' and 'XACMLWithDM'. Please refer to the implementation of each adapter for more details. Note that other adapters can be easily implemented (follow the instructions in the 'BaseRBAC' class)."
     )
@@ -884,17 +876,8 @@ def set_up_iteration_limit(environment: Environment, **kwargs):
 def on_test_start(environment, **kwargs):
     global numberOfWorkers, syncPolicyAcrossWorkers, adapterToUse, workflowsAndPaths, doInitialize, host, shuffle, workerID, reservePolicy, uniqueUserNames, uniqueRoleNames, uniqueTransientResourceNames, reserveUsers, ignoreAddUser, ignoreAddRole, ignoreAddResource, ignoreDeleteUser, ignoreDeleteRole, ignoreDeleteResource, ignoreAssignUser, ignoreAssignPermission, ignoreRevokeUser, ignoreRevokePermission, ignoreReadResource, ignoreWriteResource, ignorePersistentAssignRevokePermission, repeatWorkflows, numberOfRepetitionsPerPathByWorkflow, numberOfPathsPerWorkflow
 
-    host = os.environ['host'] if ('host' in os.environ) else environment.host
+    host = environment.host
     args = environment.parsed_options
-
-    if ('workerID' in os.environ):
-        workerID = os.environ['workerID'] 
-    elif (args.workerID):
-        workerID = args.workerID
-    else:
-        workerID = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
-    logging.info("Worker ID is " + workerID)
-
     logging.info(
         """
             ______            _          
@@ -903,79 +886,44 @@ def on_test_start(environment, **kwargs):
          / /___/ / / / /_/ / / / / /  __/
         /_____/_/ /_/\__, /_/_/ /_/\___/ 
                     /____/                                                                  
-        """ +
-        "(worker ID: " +
-        str(workerID) +
-        ")"
-    )
-
-    logging.warn("""
-        __          __     _____  _   _ _____ _   _  _____ 
-         \ \        / /\   |  __ \| \ | |_   _| \ | |/ ____|
-          \ \  /\  / /  \  | |__) |  \| | | | |  \| | |  __ 
-           \ \/  \/ / /\ \ |  _  /| . ` | | | | . ` | | |_ |
-            \  /\  / ____ \| | \ \| |\  |_| |_| |\  | |__| |
-             \/  \/_/    \_\_|  \_\_| \_|_____|_| \_|\_____|
-                                                            
-        When running Locust distributed, custom arguments are automatically forwarded from the master
-        to the workers when the run is started (but not before then, so you cannot rely on forwarded 
-        arguments before the test has actually started).
-
-        As a corollary, if you want to customize the arguments worker-wise (i.e., give to workers different 
-        values for the same argument, pass those arguments as environment variables instead that as arguments
-
-        For instance, to specify a custom host, run:
-            env host=https://127.0.0.1:80 locust -f simulator/Engine.py --worker
-        Instead of 
-            locust -f simulator/Engine.py --worker --host=https://127.0.0.1:80
         """
     )
 
-    reserveUsers = os.environ['reserveUsers'] if ('reserveUsers' in os.environ) else args.reserveUsers
-    ignoreAddUser = os.environ['ignoreAddUser'] if ('ignoreAddUser' in os.environ) else args.ignoreAddUser
-    ignoreAddRole = os.environ['ignoreAddRole'] if ('ignoreAddRole' in os.environ) else args.ignoreAddRole
-    ignoreAddResource = os.environ['ignoreAddResource'] if ('ignoreAddResource' in os.environ) else args.ignoreAddResource
-    ignoreDeleteUser = os.environ['ignoreDeleteUser'] if ('ignoreDeleteUser' in os.environ) else args.ignoreDeleteUser
-    ignoreDeleteRole = os.environ['ignoreDeleteRole'] if ('ignoreDeleteRole' in os.environ) else args.ignoreDeleteRole
-    ignoreDeleteResource = os.environ['ignoreDeleteResource'] if ('ignoreDeleteResource' in os.environ) else args.ignoreDeleteResource
-    ignoreAssignUser = os.environ['ignoreAssignUser'] if ('ignoreAssignUser' in os.environ) else args.ignoreAssignUser
-    ignoreAssignPermission = os.environ['ignoreAssignPermission'] if ('ignoreAssignPermission' in os.environ) else args.ignoreAssignPermission
-    ignoreRevokeUser = os.environ['ignoreRevokeUser'] if ('ignoreRevokeUser' in os.environ) else args.ignoreRevokeUser
-    ignoreRevokePermission = os.environ['ignoreRevokePermission'] if ('ignoreRevokePermission' in os.environ) else args.ignoreRevokePermission
-    ignoreReadResource = os.environ['ignoreReadResource'] if ('ignoreReadResource' in os.environ) else args.ignoreReadResource
-    ignoreWriteResource = os.environ['ignoreWriteResource'] if ('ignoreWriteResource' in os.environ) else args.ignoreWriteResource
-    ignorePersistentAssignRevokePermission = os.environ['ignorePersistentAssignRevokePermission'] if ('ignorePersistentAssignRevokePermission' in os.environ) else args.ignorePersistentAssignRevokePermission
-    uniqueUserNames = os.environ['uniqueUserNames'] if ('uniqueUserNames' in os.environ) else args.uniqueUserNames
-    uniqueRoleNames = os.environ['uniqueRoleNames'] if ('uniqueRoleNames' in os.environ) else args.uniqueRoleNames
-    uniqueTransientResourceNames = os.environ['uniqueTransientResourceNames'] if ('uniqueTransientResourceNames' in os.environ) else args.uniqueTransientResourceNames
-    reservePolicy = os.environ['reservePolicy'] if ('reservePolicy' in os.environ) else args.reservePolicy
-    syncPolicyAcrossWorkers = os.environ['syncPolicyAcrossWorkers'] if ('syncPolicyAcrossWorkers' in os.environ) else args.syncPolicyAcrossWorkers
+    reserveUsers = args.reserveUsers
+    ignoreAddUser = args.ignoreAddUser
+    ignoreAddRole = args.ignoreAddRole
+    ignoreAddResource = args.ignoreAddResource
+    ignoreDeleteUser = args.ignoreDeleteUser
+    ignoreDeleteRole = args.ignoreDeleteRole
+    ignoreDeleteResource = args.ignoreDeleteResource
+    ignoreAssignUser = args.ignoreAssignUser
+    ignoreAssignPermission = args.ignoreAssignPermission
+    ignoreRevokeUser = args.ignoreRevokeUser
+    ignoreRevokePermission = args.ignoreRevokePermission
+    ignoreReadResource = args.ignoreReadResource
+    ignoreWriteResource = args.ignoreWriteResource
+    ignorePersistentAssignRevokePermission = args.ignorePersistentAssignRevokePermission
+    uniqueUserNames = args.uniqueUserNames
+    uniqueRoleNames = args.uniqueRoleNames
+    uniqueTransientResourceNames = args.uniqueTransientResourceNames
+    reservePolicy = args.reservePolicy
+    syncPolicyAcrossWorkers = args.syncPolicyAcrossWorkers
 
     if (syncPolicyAcrossWorkers and not reservePolicy):
         logging.error("The 'syncPolicyAcrossWorkers' flag requires the 'reservePolicy' flag")
 
-    shuffle = os.environ['shuffle'] if ('shuffle' in os.environ) else args.shuffle
-    doInitialize = os.environ['doInitialize'] if ('doInitialize' in os.environ) else args.doInitialize
-    operations = os.environ['operations'] if ('operations' in os.environ) else args.operations
+    shuffle = args.shuffle
+    doInitialize = args.doInitialize
+    operations = args.operations
     operationFiles = operations.split(";")
-    logging.info("Worker with ID " + str(workerID) + " has " + str(host) + " as host")
-    logging.info("Worker with ID " + str(workerID) + " has " + str(len(operationFiles)) + " operation files")
-
     for operationFile in operationFiles:
         if (not os.path.isfile(operationFile)):
             logging.error("File " + operationFile + " not found")
             exit(1)
-        else:
-            logging.info(" - " + operationFile)
-
-    numberOfWorkers = int(os.environ['numberOfWorkers']) if ('numberOfWorkers' in os.environ) else int(args.numberOfWorkers)
-
-    if ('repeatWorkflows' in os.environ):
-        repeatWorkflows = int(os.environ['repeatWorkflows'])
-    elif (args.repeatWorkflows):
-        repeatWorkflows = int(args.repeatWorkflows)
-    else:
-        repeatWorkflows = None
+    workerID = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10)) if not args.workerID else args.workerID
+    logging.info("Worker ID is " + workerID)
+    numberOfWorkers = int(args.numberOfWorkers)
+    repeatWorkflows = None if not args.repeatWorkflows else int(args.repeatWorkflows)
     if (repeatWorkflows != None):
         assert(repeatWorkflows > 0)
 
@@ -1000,11 +948,9 @@ def on_test_start(environment, **kwargs):
             else:
                 logging.info("Workflow " + workflowName + ": " + str(numberOfPaths) + " paths to execute")
 
-    adapterToUse = os.environ['adapter'] if ('adapter' in os.environ) else args.adapter
+    adapterToUse = args.adapter
     if (adapterToUse == "CryptoAC"):
         logging.info("Chose CryptoAC as adapter")
-    elif (adapterToUse == "CryptoACMQTT"):
-        logging.info("Chose CryptoACMQTT as adapter")
     elif (adapterToUse == "OPA"):
         logging.info("Chose OPA as adapter")
     elif (adapterToUse == "OPAWithDM"):
@@ -1028,7 +974,7 @@ def on_test_stop(environment, **kwargs):
 
 # Class implementing the execution of the workflow
 class WorkflowExecutor(HttpUser):
-    wait_time = constant(0)
+    wait_time = between(0, 1)
     chooseWorkflowLock = threading.Lock()
     reserveUserLock = threading.Lock()
     reservePolicyLock = threading.Lock()
@@ -1060,7 +1006,6 @@ class WorkflowExecutor(HttpUser):
                 "permissionsPA":BaseRBAC.permissionsPA,
                 "updateType":"wholePolicy"
             })
-        else:
             self.notifyMasterToReleasePolicy()
             
 
@@ -1443,7 +1388,7 @@ class WorkflowExecutor(HttpUser):
                         ) 
                     else:
                         resourceContent = getRandomString(
-                            sizeInBytes = int(operation["resourceSize"])
+                            sizeInKiloBytes = int(operation["resourceSize"])
                         )
                         logging.debug("Path " 
                             + uniqueID 
@@ -1736,7 +1681,7 @@ class WorkflowExecutor(HttpUser):
                         self.notifyMasterToReleaseUser(userToUse)
                         if (resourceContent == True or resourceContent == False):
                             logging.debug("Read resource operation returned " + str(resourceContent))
-                            self.assertSuccess(uniqueID, resourceContent)
+                            self.assertSuccess(uniqueID, False)
 
 
                 elif (op == "writeResource"):
@@ -1758,7 +1703,7 @@ class WorkflowExecutor(HttpUser):
                             + roleName
                         )
                         resourceContent = getRandomString(
-                            sizeInBytes = int(operation["resourceSize"])
+                            sizeInKiloBytes = int(operation["resourceSize"])
                         )
                         userToUse = self.askMasterToReserveUserBelongingToRole(roleName)
                         operationSuccess = self.adapter.writeResource(
@@ -1775,31 +1720,25 @@ class WorkflowExecutor(HttpUser):
         endTime = time.time()
         workflowCompletionTime = (endTime - startTime - self.idlingTime) * 1000
 
-        events.request.fire(
-            request_type = "Workflow Execution Time",
-            name = uniqueID,
-            response_time = workflowCompletionTime, 
-            response_length = 0,
-            exception=None,
-            context={}
-        )
+        # events.request_success.fire(
+        #     request_type = "Workflow Execution Time",
+        #     name = uniqueID,
+        #     response_time = workflowCompletionTime, 
+        #     response_length = 0,
+        # )
 
-        events.request.fire(
-            request_type = "Workflow Idling Time",
-            name = uniqueID,
-            response_time = self.idlingTime * 1000, 
-            response_length = 0,
-            exception=None,
-            context={}
-        )
+        # events.request_success.fire(
+        #     request_type = "Workflow Idling Time",
+        #     name = uniqueID,
+        #     response_time = self.idlingTime * 1000, 
+        #     response_length = 0,
+        # )
 
-        events.request.fire(
+        events.request_success.fire(
             request_type = "WorkflowCompleted",
             name = uniqueID,
             response_time = 0, 
             response_length = 0,
-            exception=None,
-            context={}
         )
 
         # We successfully executed the workflow
@@ -1822,3 +1761,5 @@ class WorkflowExecutor(HttpUser):
 
         # Reset the idling time
         self.idlingTime = 0
+
+

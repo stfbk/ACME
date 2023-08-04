@@ -1,10 +1,8 @@
 from BaseRBAC import BaseRBAC
-import json
+import threading, requests, string, random, json, time
 
 # Adapter for CryptoAC
 class CryptoACRBAC(BaseRBAC):
-
-    core = "RBAC_AT_REST"
 
     # Profile for CryptoAC RBAC_CLOUD without OPA
     adminProfile = {
@@ -96,7 +94,7 @@ class CryptoACRBAC(BaseRBAC):
 
     def _apiAddUser(self, clientToUse, username):
         with clientToUse.post(
-            self.host + '/v1/CryptoAC/users/' + self.core + '/',
+            self.host + '/v1/CryptoAC/users/RBAC_AT_REST/',
             data={'Username':username}
         ) as response:
             assert(response.status_code == 200)
@@ -106,7 +104,7 @@ class CryptoACRBAC(BaseRBAC):
 
     def _apiAddRole(self, clientToUse, roleName):
         with clientToUse.post(
-            self.host + '/v1/CryptoAC/roles/' + self.core + '/',
+            self.host + '/v1/CryptoAC/roles/RBAC_AT_REST/',
             data={'Role_Name':roleName}
         ) as response:
             returnValue = (response.text == "\"CODE_000_SUCCESS\"")
@@ -116,8 +114,8 @@ class CryptoACRBAC(BaseRBAC):
     def _apiAddResource(self, clientToUse, userToUse, resourceName, assumedRoleName, resourceContent):
         resources = {resourceName: resourceContent}
         with clientToUse.post(
-                self.host + '/v1/CryptoAC/resources/' + self.core + '/',
-                data = {'Access_Control_Enforcement': 'TRADITIONAL'},
+                self.host + '/v1/CryptoAC/resources/RBAC_AT_REST/',
+                data = {'Access_Control_Enforcement': 'COMBINED'},
                 files = resources
             ) as response:
                 returnValue = (response.text == "\"CODE_000_SUCCESS\"")
@@ -127,7 +125,7 @@ class CryptoACRBAC(BaseRBAC):
     def _apiDeleteUser(self, clientToUse, username):
         returnValue = False
         with clientToUse.delete(
-            self.host + '/v1/CryptoAC/users/' + self.core + '/' + username
+            self.host + '/v1/CryptoAC/users/RBAC_AT_REST/' + username
         ) as response:
             returnValue = (response.text == "\"CODE_000_SUCCESS\"")
         return returnValue
@@ -136,7 +134,7 @@ class CryptoACRBAC(BaseRBAC):
     def _apiDeleteRole(self, clientToUse, roleName):
         returnValue = False
         with clientToUse.delete(
-            self.host + '/v1/CryptoAC/roles/' + self.core + '/' + roleName
+            self.host + '/v1/CryptoAC/roles/RBAC_AT_REST/' + roleName
         ) as response:
             returnValue = (response.text == "\"CODE_000_SUCCESS\"")
         return returnValue
@@ -145,7 +143,7 @@ class CryptoACRBAC(BaseRBAC):
     def _apiDeleteResource(self, clientToUse, resourceName):
         returnValue = False
         with clientToUse.delete(
-            self.host + '/v1/CryptoAC/resources/' + self.core + '/' + resourceName
+            self.host + '/v1/CryptoAC/resources/RBAC_AT_REST/' + resourceName
         ) as response:
             returnValue = (response.text == "\"CODE_000_SUCCESS\"")
         return returnValue
@@ -153,7 +151,7 @@ class CryptoACRBAC(BaseRBAC):
 
     def _apiAssignUserToRole(self, clientToUse, username, roleName):
         with clientToUse.post(
-            self.host + '/v1/CryptoAC/assignments/' + self.core + '/', 
+            self.host + '/v1/CryptoAC/assignments/RBAC_AT_REST/', 
             data={'Username':username, 'Role_Name':roleName},
         ) as response:
             returnValue = (
@@ -169,7 +167,7 @@ class CryptoACRBAC(BaseRBAC):
         if (permission.upper() == "WRITE"):
             permission = "READWRITE"
         with clientToUse.post(
-            self.host + '/v1/CryptoAC/permissions/' + self.core + '/', 
+            self.host + '/v1/CryptoAC/permissions/RBAC_AT_REST/', 
             data={'Role_Name':roleName, 'Resource_Name':resourceName, 'Permission':permission.upper()}
         ) as response:
             returnValue = (response.text == "\"CODE_000_SUCCESS\"")
@@ -179,7 +177,7 @@ class CryptoACRBAC(BaseRBAC):
     def _apiRevokeUserFromRole(self, clientToUse, username, roleName):
         returnValue = False
         with clientToUse.delete(
-            self.host + '/v1/CryptoAC/assignments/' + self.core + '/' + username + '/' + roleName
+            self.host + '/v1/CryptoAC/assignments/RBAC_AT_REST/' + username + '/' + roleName
         ) as response:
             returnValue = (response.text == "\"CODE_000_SUCCESS\"")
         return returnValue
@@ -190,7 +188,7 @@ class CryptoACRBAC(BaseRBAC):
         if (permission == "READ"):
             permission = "READWRITE" 
         with clientToUse.delete(
-            self.host + '/v1/CryptoAC/permissions/' + self.core + '/' + roleName + '/' + resourceName + '/' + permission
+            self.host + '/v1/CryptoAC/permissions/RBAC_AT_REST/' + roleName + '/' + resourceName + '/' + permission
         ) as response:
             returnValue = (response.text == "\"CODE_000_SUCCESS\"")
         return returnValue
@@ -198,7 +196,7 @@ class CryptoACRBAC(BaseRBAC):
    
     def _apiReadResource(self, clientToUse, username, assumedRoleName, resourceName): 
         with clientToUse.get(
-            self.host + '/v1/CryptoAC/resources/' + self.core + '/' + resourceName, 
+            self.host + '/v1/CryptoAC/resources/RBAC_AT_REST/' + resourceName, 
             stream = True
         ) as response:
             fileContentChunks = bytearray(b'')
@@ -211,8 +209,8 @@ class CryptoACRBAC(BaseRBAC):
     def _apiWriteResource(self, clientToUse, userToUse, assumedRoleName, resourceName, resourceContent): 
         resources = {resourceName: resourceContent}
         with clientToUse.patch(
-                self.host + '/v1/CryptoAC/resources/' + self.core + '/',
-                data = {'Access_Control_Enforcement': 'TRADITIONAL'},
+                self.host + '/v1/CryptoAC/resources/RBAC_AT_REST/',
+                data = {'Access_Control_Enforcement': 'COMBINED'},
                 files = resources
             ) as response:
                 returnValue = (response.text == "\"CODE_000_SUCCESS\"")
@@ -221,7 +219,7 @@ class CryptoACRBAC(BaseRBAC):
 
     def _apiGetUsers(self, clientToUse):
         with clientToUse.get(
-            self.host + '/v1/CryptoAC/users/' + self.core + '/'
+            self.host + '/v1/CryptoAC/users/RBAC_AT_REST/'
         ) as response:
             returnValue = []
             users = response.json()
@@ -232,7 +230,7 @@ class CryptoACRBAC(BaseRBAC):
 
     def _apiGetRoles(self, clientToUse):
         with clientToUse.get(
-            self.host + '/v1/CryptoAC/roles/' + self.core + '/'
+            self.host + '/v1/CryptoAC/roles/RBAC_AT_REST/'
         ) as response:
             returnValue = []
             roles = response.json()
@@ -243,7 +241,7 @@ class CryptoACRBAC(BaseRBAC):
 
     def _apiGetResources(self, clientToUse):
         with clientToUse.get(
-            self.host + '/v1/CryptoAC/resources/' + self.core + '/'
+            self.host + '/v1/CryptoAC/resources/RBAC_AT_REST/'
         ) as response:
             returnValue = []
             resources = response.json()
@@ -255,7 +253,7 @@ class CryptoACRBAC(BaseRBAC):
     def _apiGetAssignments(self, clientToUse):
         returnValue = {}
         with clientToUse.get(
-            self.host + '/v1/CryptoAC/assignments/' + self.core + '/'
+            self.host + '/v1/CryptoAC/assignments/RBAC_AT_REST/'
         ) as response:
             roleTuples = response.json()
             for roleTuple in roleTuples:
@@ -268,7 +266,7 @@ class CryptoACRBAC(BaseRBAC):
     def _apiGetPermissions(self, clientToUse):
         returnValue = {}
         with clientToUse.get(
-            self.host + '/v1/CryptoAC/permissions/' + self.core + '/'
+            self.host + '/v1/CryptoAC/permissions/RBAC_AT_REST/'
         ) as response:
             permissionTuples = response.json()
             for permissionTuple in permissionTuples:
@@ -294,7 +292,7 @@ class CryptoACRBAC(BaseRBAC):
     def _addProfile(self, clientToUse, profileToUse):
         returnValue = False
         with clientToUse.post(
-            self.host + '/v1/profile/' + self.core + '/',
+            self.host + '/v1/profile/RBAC_AT_REST/',
             json = profileToUse
         ) as response:
             returnValue = (response.text == "\"CODE_000_SUCCESS\"")

@@ -1,9 +1,6 @@
-# at the beginning of the script
-import gevent.monkey
-gevent.monkey.patch_all()
+#!/usr/bin/python
 
 from adapters.CryptoAC.CryptoACRBAC import CryptoACRBAC
-from adapters.CryptoAC.CryptoACRBACMQTT import CryptoACRBACMQTT
 from adapters.OPA.OPARBAC import OPARBAC
 from adapters.OPA.OPAWithDMRBAC import OPAWithDMRBAC
 from adapters.XACML.XACMLRBAC import XACMLRBAC
@@ -49,9 +46,8 @@ def generateRoleNames(quantity):
             with open(operationFile, "r") as operationFileReader:
                 logging.debug("Reading operation file " + operationFile)
                 operationFileContent = operationFileReader.read()
-                operationFileRoleNames = re.findall('"roleName":"(.+?)"', operationFileContent)
+                operationFileRoleNames = re.findall('"op":"addRole", "roleName":"(.+?)"', operationFileContent)
                 roleNames.extend(set(operationFileRoleNames))
-                roleNames = [*set(roleNames)]
     if (len(roleNames) < quantity):
         if (not flexibleACState):
             raise ValueError("The AC policy state has more roles than the workflows")
@@ -87,16 +83,6 @@ def generateResourceNames(quantity):
                 operationFileContent = operationFileReader.read()
                 operationFileResourceNames = re.findall('"vertex":"a-priori", "op":"addResource", "resourceName":"(.+?)", "roleName":".*", "type":"persistent"', operationFileContent)
                 resourceNames.extend(set(operationFileResourceNames))
-                resourceNames = [*set(resourceNames)]
-        if (len(resourceNames) < quantity):
-            logging.info("Finding more resource names from operations")
-            for operationFile in operationFiles:
-                with open(operationFile, "r") as operationFileReader:
-                    logging.debug("Reading operation file " + operationFile)
-                    operationFileContent = operationFileReader.read()
-                    operationFileResourceNames = re.findall('"resourceName":"(.+?)"', operationFileContent)
-                    resourceNames.extend(set(operationFileResourceNames))
-                    resourceNames = [*set(resourceNames)]
     if (len(resourceNames) < quantity):
         if (not flexibleACState):
             raise ValueError("The AC policy state has more resources than the workflows")
@@ -257,8 +243,6 @@ logging.info(
 adapterToUse = args.adapter
 if (adapterToUse == "CryptoAC"):
     logging.info("Chose CryptoAC as adapter")
-elif (adapterToUse == "CryptoACMQTT"):
-    logging.info("Chose CryptoACMQTT as adapter")
 elif (adapterToUse == "OPA"):
     logging.info("Chose OPA as adapter")
 elif (adapterToUse == "OPAWithDM"):
@@ -359,13 +343,6 @@ if (adapterToUse == "CryptoAC"):
         host = host, 
         logging = logging,
         username = CryptoACRBAC.adminName,
-        doInitialize = doInitialize
-    )
-elif (adapterToUse == "CryptoACMQTT"):
-    adapter = CryptoACRBACMQTT(
-        host = host, 
-        logging = logging,
-        username = CryptoACRBACMQTT.adminName,
         doInitialize = doInitialize
     )
 elif (adapterToUse == "OPA"):
