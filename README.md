@@ -2,36 +2,36 @@
 
 While the security analysis of Access Control (AC) policies has received a lot of attention, the same cannot be said for their **enforcement**. As systems become more distributed (e.g., centralized services may become a *bottleneck*) and legal compliance constraints stricter (e.g., the problem of *honest but curious* Cloud providers in the light of privacy regulations), the **fine-tuning of AC enforcement mechanisms** is likely to become more and more important. This is especially true in scenarios where the quality of service may suffer from **computationally heavy security mechanisms** and low latency is a prominent requirement. 
 
-As a first step towards a principled approach to fine-tune AC enforcement, we wrote a scientific article entitled "*A Simulation Framework for the Experimental Evaluation of Access Control Enforcement Mechanisms based on Business Processes*"; the article proposes a methodology providing the means to **measure the performance of AC enforcement mechanisms through the simulation of realistic deployment scenarios.** To do so, we base our methodology on Business Process Model and Notation (BPMN) workflows—that provide for an appropriate abstraction of the sequence of requests toward AC enforcement mechanisms performed by applications—to derive lists of AC operations (e.g., access a resource, revoke a permission) and execute them to evaluate and compare the performance of different mechanisms. [Here](./results.zip) you can find the results of the experimental evaluation contained in the article and the corresponding graphs by number of users and chosen mechanism (i.e., CryptoAC, OPA or XACML) together with the code to elaborate them. Please run `cd results/ && python3 ElaborateResults.py` to run the elaboration of the results and draw the plots.
+As a first step towards a principled approach to fine-tune AC enforcement, we wrote a scientific article entitled "*A Methodology for the Experimental Evaluation of Access Control Enforcement Mechanisms based on Business Processes*"; the article proposes a methodology providing the means to **measure the performance of AC enforcement mechanisms through the simulation of realistic deployment scenarios.** To do so, we base our methodology on Business Process Model and Notation (BPMN) workflows—that provide for an appropriate abstraction of the sequence of requests toward AC enforcement mechanisms performed by applications—to derive lists of AC operations (e.g., access a resource, revoke a permission) and execute them to evaluate and compare the performance of different mechanisms. [Here](./results.zip) you can find the results of the experimental evaluation contained in the article and the corresponding graphs by number of users and chosen mechanism (i.e., CryptoAC, OPA or XACML) together with the code to elaborate them. Please run `cd results/ && python3 ElaborateResults.py` to run the elaboration of the results and draw the plots.
 
 This repository contains the implementation of such a methodology. Please refer to the article for more details:
-* [workflows](./workflows/) - the [XML files](./workflows/xml) of the BPMN workflows discussed in the article along with the [lists of access control operations](./workflows/operations/) obtained with the workflow extraction procedure; 
-* [wep](./wep/) - the implementation of the workflow extraction procedure. Please run the helper (`./launchHelpWEP.sh`) to obtain more information and the scripts (`./launchers/launchWEPOn*.sh`) to launch the procedure on a workflow ([python3](https://www.python.org/downloads/), version 3.8 or later, is required);
-* [microbenchmark](./microbenchmark/) - the AC operations for launching micro-benchmarks using the simulator tool;
-* [simulator](./simulator/) - the implementation of the simulator tool. Please run the helper (`./launchHelpSimulator.sh`) to obtain more information. To run the simulator tool, refer to the section below. Please check all files in order to update, e.g., file system paths and URLs;
+* [workflows](./workflows/) - the [XML files](./workflows/xml) of the BPMN workflows discussed in the article along with the [lists of access control operations](./workflows/operations/) obtained with ACE; 
+* [wep](./wep/) - the implementation of ACE. Please run the helper (`./launchHelpWEP.sh`) to obtain more information and the scripts (`./launchers/launchWEPOn*.sh`) to launch ACE on a workflow ([python3](https://www.python.org/downloads/), version 3.8 or later, is required);
+* [microbenchmark](./microbenchmark/) - the AC operations for launching micro-benchmarks using ACME;
+* [simulator](./simulator/) - the implementation of ACME. Please run the helper (`./launchHelpSimulator.sh`) to obtain more information. To run ACME, refer to the section below. Please check all files in order to update, e.g., file system paths and URLs;
 * [launchers](./launchers/) - the folder collecting all launchers.
 
 
 
-## The Workflow Extraction Procedure
+## ACE
 
-Please refer to the article (Section 5) for details on the workflow extraction procedure. Remember that not all BPMN worflows can be parsed, as not all BPMN (uncommon) symbols are supported.
+Please refer to the article (Section 5) for details on ACE. Remember that not all BPMN worflows can be parsed, as not all BPMN (uncommon) symbols are supported.
 
 
 
-## The Simulator Tool
+## ACME
 
-As described in the article, the simulator tool is composed of two modules, i.e., the initializer and the engine. The engine uses Locust as load generator. When running [distributed](https://docs.locust.io/en/stable/running-distributed.html), Locust expects a single instance coordinating the evaluation (called `master`) and many instances sending requests to the access control enforcement mechanism (called `workers`).
+As described in the article, ACME is composed of two modules, i.e., the initializer and the engine. The engine uses Locust as load generator. When running [distributed](https://docs.locust.io/en/stable/running-distributed.html), Locust expects a single instance coordinating the evaluation (called `master`) and many instances sending requests to the access control enforcement mechanism (called `workers`).
 
 The engine allows a fine-grained customization of several parameters (run the helper `./launchHelpSimulator.sh` for more details). In particular, we implement a dedicated request/response protocol to synchronize the usage of users (of the AC policy) across instances of the engine and the state of the access control policy, as described in Section 6 in the article. This helps in simulating a realistic environment in which each user carries out a single activity at a given time, but can take part in more than one instances of different workflows simultaneously (even on different clients). If no user is available to execute an activity in a specific worker (because, e.g., all users are already busy), the worker goes into an "idling" state until notified by the master that a user with the required role assignment is available. The idling time is measured separately from the workflow execution time and can be useful to identify bottlenecks in the access control policy, i.e., important roles with too few users assigned.
 
-Our simulator tool can currently be used to evaluate the performance of CryptoAC, OPA and the AuthzForce Server implementation of XACML. To use our simulator tool with other access control enforcement mechanisms, please refer to the [dedicated instructions](simulator/BaseRBAC.py).
+Our ACME can currently be used to evaluate the performance of CryptoAC, OPA and the AuthzForce Server implementation of XACML. To use our ACME with other access control enforcement mechanisms, please refer to the [dedicated instructions](simulator/BaseRBAC.py).
 
 
 
-## How to use the Simulator Tool
+## How to use ACME
 
-To use the simulator tool (e.g., to replicate the evaluation discussed in the article), the following is required:
+To use ACME (e.g., to replicate the evaluation discussed in the article), the following is required:
 * 1 device to run the AC enforcement mechanism (e.g., OPA, the AuthzForce Server for XACML or the centralized services of CryptoAC) (called "mechanism" hereafter);
 * 1 device to run the master instance of Locust (called "master" hereafter);
 * 1 or more devices, one for each client (called "worker" hereafter).
