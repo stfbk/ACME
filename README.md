@@ -1,4 +1,4 @@
-# A Simulation Framework for the Experimental Evaluation of Access Control Enforcement Mechanisms based on Business Processes
+# A Methodology for the Experimental Evaluation of Access Control Enforcement Mechanisms based on Business Processes
 
 While the security analysis of Access Control (AC) policies has received a lot of attention, the same cannot be said for their **enforcement**. As systems become more distributed (e.g., centralized services may become a *bottleneck*) and legal compliance constraints stricter (e.g., the problem of *honest but curious* Cloud providers in the light of privacy regulations), the **fine-tuning of AC enforcement mechanisms** is likely to become more and more important. This is especially true in scenarios where the quality of service may suffer from **computationally heavy security mechanisms** and low latency is a prominent requirement. 
 
