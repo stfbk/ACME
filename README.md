@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="ACME.png" width="128" height="128" />
+</p>
+
 # ACME
 
 ACME (*Access Control Mechanisms Evaluator*) allows evaluating the performance of access control enforcement mechanisms (e.g., [OPA](https://www.openpolicyagent.org/), [XACML](http://docs.oasis-open.org/xacml/3.0/xacml-3.0-core-spec-os-en.html) and [CryptoAC](https://github.com/stfbk/CryptoAC)) through the **simulated execution of realistic workflows**. ACME is usually used in combination with [ACE](https://github.com/stfbk/ACE).
