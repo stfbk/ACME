@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/ACME.png" width="128" height="128" />
+  <img src="ACME.png" width="128" height="128" />
 </p>
 
 # ACME
