@@ -1,7 +1,7 @@
 from BaseRBAC import BaseRBAC
 from adapters.CryptoAC.CryptoACRBAC import CryptoACRBAC
 from locust import events
-import json
+import json, base64, os
 
 # Adapter for CryptoAC (MQTT)
 class CryptoACRBACMQTT(CryptoACRBAC):
@@ -115,11 +115,12 @@ class CryptoACRBACMQTT(CryptoACRBAC):
 
             if (returnValue != "[]"):
                 messages = json.loads(returnValue)
+                self.logging.info("[readResource] Received number of " + str(len(messages)) + " messages")
                 for message in messages:
                     if ("message" in message):
                         events.request.fire(
                             request_type = "MessageReceived",
-                            name = message["message"],
+                            name = message["message"] + "_" + base64.b64encode(os.urandom(10))[:10].decode('utf-8'),
                             response_time = 0, 
                             response_length = 0,
                             exception=None,
@@ -130,6 +131,8 @@ class CryptoACRBACMQTT(CryptoACRBAC):
                             + "message with no content: " 
                             + str(message)
                         )
+            else:
+                self.logging.info("[readResource] Received number of 0 messages")
                             
         return returnValue
 

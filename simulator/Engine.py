@@ -25,6 +25,8 @@ import os, os.path
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Global variables
+firstTime = True
+shouldStop = False
 host = None                             # Host toward which send the requests (e.g., usually the URL)
 adapterToUse = None                     # Type of adapter to use (e.g., CryptoAC, OPA, OPAWithDM, XACML, XACMLWithDM)
 workflowsAndPaths = {}                  # Key is the name of the workflow, value is list of paths
@@ -850,7 +852,9 @@ def register_listeners(environment, **_kwargs):
 @events.test_start.add_listener
 def set_up_iteration_limit(environment: Environment, **kwargs):
     options = environment.parsed_options
-    if options.iterations:
+    iterations = os.environ['iterations'] if ('iterations' in os.environ) else options.iterations
+    if iterations:
+        logging.info("Number of iterations was specified: " + str(iterations))
         runner: Runner = environment.runner
         runner.iterations_started = 0
         runner.iteration_target_reached = False
@@ -858,16 +862,18 @@ def set_up_iteration_limit(environment: Environment, **kwargs):
         def iteration_limit_wrapper(method):
             @wraps(method)
             def wrapped(self, task):
-                if runner.iterations_started == options.iterations:
-                    if not runner.iteration_target_reached:
-                        runner.iteration_target_reached = True
-                        logging.info(
-                            f"Iteration limit reached ({options.iterations}), stopping Users at the start of their next task run"
-                        )
-                    if runner.user_count == 1:
-                        logging.info("Last user stopped, quitting runner")
-                        runner.quit()
-                    raise StopUser()
+                global shouldStop
+                if int(runner.iterations_started) == int(iterations):
+                    shouldStop = True
+                    # if not runner.iteration_target_reached:
+                    #     runner.iteration_target_reached = True
+                    #     logging.info(
+                    #         f"Iteration limit reached ({iterations}), stopping Users at the start of their next task run"
+                    #     )
+                    # if runner.user_count == 1:
+                    #     logging.info("Last user stopped, quitting runner")
+                    #     runner.quit()
+                    # raise StopUser()
                 runner.iterations_started = runner.iterations_started + 1
                 method(self, task)
 
@@ -1287,7 +1293,7 @@ class WorkflowExecutor(HttpUser):
     # just do a whole user flow in a single task."
     @task
     def executeWorkflow(self):
-        global syncPolicyAcrossWorkers, locustEnv, workflowsAndPaths, shuffle, uniqueUserNames, uniqueRoleNames, uniqueTransientResourceNames, reserveUsers, ignoreAddUser, ignoreAddRole, ignoreAddResource, ignoreDeleteUser, ignoreDeleteRole, ignoreDeleteResource, ignoreAssignUser, ignoreAssignPermission, ignoreRevokeUser, ignoreRevokePermission, ignoreReadResource, ignoreWriteResource, ignorePersistentAssignRevokePermission, workerID, repeatWorkflows, numberOfRepetitionsPerPathByWorkflow, latestPathExecutedIndexPerWorkflow, latestWorkflowExecutedIndex, numberOfPathsPerWorkflow
+        global syncPolicyAcrossWorkers, locustEnv, workflowsAndPaths, shuffle, uniqueUserNames, uniqueRoleNames, uniqueTransientResourceNames, reserveUsers, ignoreAddUser, ignoreAddRole, ignoreAddResource, ignoreDeleteUser, ignoreDeleteRole, ignoreDeleteResource, ignoreAssignUser, ignoreAssignPermission, ignoreRevokeUser, ignoreRevokePermission, ignoreReadResource, ignoreWriteResource, ignorePersistentAssignRevokePermission, workerID, repeatWorkflows, numberOfRepetitionsPerPathByWorkflow, latestPathExecutedIndexPerWorkflow, latestWorkflowExecutedIndex, numberOfPathsPerWorkflow, shouldStop, firstTime
 
         WorkflowExecutor.chooseWorkflowLock.acquire()
         
@@ -1737,39 +1743,46 @@ class WorkflowExecutor(HttpUser):
                         if (resourceContent == True or resourceContent == False):
                             logging.debug("Read resource operation returned " + str(resourceContent))
                             self.assertSuccess(uniqueID, resourceContent)
+                    time.sleep(1)
 
 
                 elif (op == "writeResource"):
-                    type = operation["type"]
-                    resourceName = operation["resourceName"] + "_" + uniqueID if (type == "transient" and uniqueTransientResourceNames) else operation["resourceName"]
-                    roleName = operation["roleName"] + "_" + uniqueID if (uniqueRoleNames and operation["roleName"] != BaseRBAC.adminName) else operation["roleName"]
-                    if (ignoreWriteResource):
-                        logging.debug("Path " 
-                            + uniqueID 
-                            + ": skipping writeResource operation, resourceName = "
-                            + resourceName
-                        ) 
+                    if (shouldStop):
+                        time.sleep(1)
                     else:
-                        logging.debug("Path " 
-                            + uniqueID 
-                            + ": writeResource, resourceName = " 
-                            + resourceName
-                            + " as role with roleName = "
-                            + roleName
-                        )
-                        resourceContent = getRandomString(
-                            sizeInBytes = int(operation["resourceSize"])
-                        )
-                        userToUse = self.askMasterToReserveUserBelongingToRole(roleName)
-                        operationSuccess = self.adapter.writeResource(
-                            resourceName = resourceName,
-                            userToUse = userToUse,
-                            assumedRoleName = roleName,
-                            resourceContent = resourceContent,
-                            measure = measure
-                        )
-                        self.notifyMasterToReleaseUser(userToUse)
-                        self.assertSuccess(uniqueID, operationSuccess)
+                        if (firstTime):
+                            time.sleep(5)
+                            firstTime = False
+                        type = operation["type"]
+                        resourceName = operation["resourceName"] + "_" + uniqueID if (type == "transient" and uniqueTransientResourceNames) else operation["resourceName"]
+                        roleName = operation["roleName"] + "_" + uniqueID if (uniqueRoleNames and operation["roleName"] != BaseRBAC.adminName) else operation["roleName"]
+                        if (ignoreWriteResource):
+                            logging.debug("Path " 
+                                + uniqueID 
+                                + ": skipping writeResource operation, resourceName = "
+                                + resourceName
+                            ) 
+                        else:
+                            logging.debug("Path " 
+                                + uniqueID 
+                                + ": writeResource, resourceName = " 
+                                + resourceName
+                                + " as role with roleName = "
+                                + roleName
+                            )
+                            resourceContent = getRandomString(
+                                sizeInBytes = int(operation["resourceSize"])
+                            )
+                            userToUse = self.askMasterToReserveUserBelongingToRole(roleName)
+                            operationSuccess = self.adapter.writeResource(
+                                resourceName = resourceName,
+                                userToUse = userToUse,
+                                assumedRoleName = roleName,
+                                resourceContent = resourceContent,
+                                measure = measure
+                            )
+                            self.notifyMasterToReleaseUser(userToUse)
+                            self.assertSuccess(uniqueID, operationSuccess)
                         
 
         endTime = time.time()
