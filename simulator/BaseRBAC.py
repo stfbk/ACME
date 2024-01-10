@@ -125,7 +125,7 @@ class BaseRBAC(object):
     def logout(self, measure):
         clientToUse = self.client if (measure) else self.clientNotLogged
         returnValue = self._apiLogout(clientToUse)
-        if (measure):
+        if (measure and self.clientNotLogged):
             self.clientNotLogged.cookies = clientToUse.cookies
         else:
             self.client.cookies = clientToUse.cookies
