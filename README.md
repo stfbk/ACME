@@ -52,6 +52,9 @@ Finally, the following Python3 packages must be installed thorugh, e.g., pip3:
 
 Download the content of this folder inside a newly created folder `~/policySimulator/` in the mechanism, the master and the worker devices. Then, download the [repository](https://github.com/stfbk/CryptoAC/) of CryptoAC in the mechanism and in all the workers. Finally, unzip the repository inside the `~/policySimulator/` folder (in the mechanism and the workers as well).
 
+> Modify the `CryptoAC/docs/source/gettingstarted/installation/OPAInterface/DockerFileOPA` file by replacing `FROM openpolicyagent/opa:latest
+` with `FROM openpolicyagent/opa:0.45.0`
+
 
 
 ### Launch the Initializer for OPA
