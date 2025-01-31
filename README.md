@@ -46,6 +46,7 @@ Finally, the following Python3 packages must be installed thorugh, e.g., pip3:
 * [names](https://pypi.org/project/names/);
 * [websocket-client](https://github.com/websocket-client/websocket-client);
 
+> as the experimentation relies on `docker-compose` and not `docker compose`, run also `pip3 install --force-reinstall 'requests<2.29.0' 'urllib3<2.0'` 
 
 ### Setup
 
